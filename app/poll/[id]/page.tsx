@@ -1,3 +1,5 @@
+"use cleint";
+
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useUser } from '@clerk/nextjs';
