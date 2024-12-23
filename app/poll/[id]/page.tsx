@@ -1,9 +1,9 @@
-'use client';
-
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useUser } from '@clerk/nextjs';
 import { format, startOfWeek } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
+
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { TimeGrid } from '@/components/TimeGrid';
@@ -11,26 +11,51 @@ import { useParams } from 'next/navigation';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { formatDistanceToNow } from 'date-fns';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Assuming you're using the shadcn table component
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-
-
+// Supabase client setup
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+// Define types for poll and vote
+interface Poll {
+  id: string;
+  title: string;
+  image_url?: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  unavailable_times: string[];
+  required_fields: string | string[] | null;
+}
+
+interface Vote {
+  preferred_times: string[];
+  created_at: string;
+  voter_info: {
+    name: string;
+    [key: string]: any;
+  };
+}
+
 export default function PollPage() {
-  const [poll, setPoll] = useState<any>(null);
+  const [poll, setPoll] = useState<Poll | null>(null);
   const [selectedTimes, setSelectedTimes] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [votes, setVotes] = useState<any[]>([]);
+  const [votes, setVotes] = useState<Vote[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [userInfo, setUserInfo] = useState<any>({});
-  const [requiredFields, setRequiredFields] = useState<string[]>([]); // Ensure this is an array
+  const [requiredFields, setRequiredFields] = useState<string[]>([]);
   const { user } = useUser();
-  const id = useParams().id;
+  const { id } = useParams<{ id: string }>();
+
+  interface UserInfo {
+    [key: string]: string; // This allows any field to be a string, adjust as necessary
+  }
+  
+  const [userInfo, setUserInfo] = useState<UserInfo>({});
+  
 
   // Fetch poll data and votes data
   useEffect(() => {
@@ -51,26 +76,14 @@ export default function PollPage() {
       setPoll(data);
 
       const fields = data.required_fields;
-      console.log('Type of fields:', typeof fields);
-      console.log('Fields content:', fields);  // Log the actual content
-
       let requiredFields: string[] = [];
 
       if (fields === null) {
-        requiredFields = []; // No required fields
+        requiredFields = [];
       } else if (Array.isArray(fields)) {
-        requiredFields = fields; // It's already an array
+        requiredFields = fields;
       } else if (typeof fields === 'string') {
-        console.log('Fields is a string');
-
-        // Split the string by commas, remove extra spaces, remove quotes and ensure it becomes an array
-        requiredFields = fields
-          .split(',')
-          .map(field => field.trim().replace(/['"\[\]]+/g, '')); // Remove quotes and square brackets
-
-
-      } else {
-        requiredFields = []; // Default case (if it's neither null, array, nor string)
+        requiredFields = fields.split(',').map(field => field.trim().replace(/['"\[\]]+/g, ''));
       }
 
       setRequiredFields(requiredFields);
@@ -94,19 +107,15 @@ export default function PollPage() {
     fetchVotes();
   }, [id]);
 
-  const handleTimeSelect = (times: string[]) => {
-    setSelectedTimes(times);
-  };
+  const handleTimeSelect = (times: string[]) => setSelectedTimes(times);
 
   const handleVoteSubmit = async () => {
     if (selectedTimes.length === 0) {
       alert('Please select at least one time slot.');
       return;
     }
-    console.log('Required fields:', requiredFields.length);
 
     if (requiredFields.length > 0) {
-
       setIsDialogOpen(true); // Open the dialog to collect required fields
       return;
     }
@@ -118,13 +127,11 @@ export default function PollPage() {
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase
-        .from('votes')
-        .insert([{
-          poll_id: poll.id,
-          preferred_times: selectedTimes,
-          voter_info: userInfo,
-        }]);
+      const { error } = await supabase.from('votes').insert([{
+        poll_id: poll?.id,
+        preferred_times: selectedTimes,
+        voter_info: userInfo,
+      }]);
 
       if (error) {
         console.error('Error submitting vote:', error);
@@ -140,6 +147,8 @@ export default function PollPage() {
     }
   };
 
+  
+
   const handleFieldChange = (field: string, value: string) => {
     setUserInfo((prev) => ({ ...prev, [field]: value }));
   };
@@ -151,7 +160,7 @@ export default function PollPage() {
     }
 
     submitVote();
-    setIsDialogOpen(false); // Close the dialog after submitting the vote
+    setIsDialogOpen(false);
   };
 
   if (!poll) return <div>Loading...</div>;
@@ -172,12 +181,12 @@ export default function PollPage() {
       timeFrequency[time] = (timeFrequency[time] || 0) + 1;
     });
   });
-  const timeAgo = (voteTime: Date) => formatDistanceToNow(new Date(voteTime), { addSuffix: true });
 
+  const timeAgo = (voteTime: Date) => formatDistanceToNow(new Date(voteTime), { addSuffix: true });
 
   return (
     <div className="container mx-auto px-4 py-8">
-
+      {/* Poll Title and Info */}
       <div className="grid grid-cols-2 gap-8 items-center justify-center">
         <h1 className="text-2xl font-bold mb-0">Poll: {poll.title}</h1>
         <div className="flex lg:flex-row items-center justify-end gap-4">
@@ -192,12 +201,7 @@ export default function PollPage() {
         </div>
       </div>
 
-
-
-
-
-
-
+      {/* Time Selection */}
       <Card className="p-6 mb-8">
         <h2 className="text-xl font-semibold mb-4">Select Available Time Slots</h2>
         <TimeGrid
@@ -209,6 +213,7 @@ export default function PollPage() {
         />
       </Card>
 
+      {/* Submit Button */}
       <div className="flex justify-center mt-6">
         <button
           className="px-6 py-2 bg-blue-600 text-white rounded-md disabled:bg-gray-400"
@@ -219,7 +224,7 @@ export default function PollPage() {
         </button>
       </div>
 
-      {/* Dialog for filling in required fields */}
+      {/* Dialog for Required Fields */}
       {isDialogOpen && (
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="sm:max-w-md">
@@ -254,23 +259,20 @@ export default function PollPage() {
         </Dialog>
       )}
 
+      {/* Voters List */}
       <Card className="p-6 mt-8 bg-white shadow-lg rounded-lg">
         <h2 className="text-2xl font-semibold mb-6 text-gray-800 text-center">Voters List</h2>
-        <Table className="min-w-full  border-collapse">
+        <Table className="min-w-full border-collapse">
           <TableHeader className="bg-gray-200">
             <TableRow>
-              {/* Show 'Voter' column only when requiredFields is empty */}
               {requiredFields.length === 0 ? (
                 <TableHead className="py-3 px-6 text-lg font-medium text-gray-700">Voter</TableHead>
               ) : (
                 <TableHead />
               )}
-
-              {/* Display dynamic fields if requiredFields has values */}
-              {requiredFields.length > 0 &&
-                requiredFields.map((field, index) => (
-                  <TableHead key={index} className="py-3 px-6 text-lg font-medium text-gray-700">{field}</TableHead>
-                ))}
+              {requiredFields.length > 0 && requiredFields.map((field, index) => (
+                <TableHead key={index} className="py-3 px-6 text-lg font-medium text-gray-700">{field}</TableHead>
+              ))}
               <TableHead className="py-3 px-6 text-lg font-medium text-gray-700">Voted At</TableHead>
             </TableRow>
           </TableHeader>
@@ -279,21 +281,16 @@ export default function PollPage() {
               const voteTime = new Date(vote.created_at);
               return (
                 <TableRow key={index} className="hover:bg-gray-100 border-b">
-                  {/* If requiredFields is empty, show 'Anonymous' in the first cell */}
                   {requiredFields.length === 0 ? (
                     <TableCell className="py-3 px-6 text-gray-800">Anonymous</TableCell>
                   ) : (
                     <TableCell className="py-3 px-6 text-gray-800">{vote.voter_info?.name}</TableCell>
                   )}
-
-                  {/* Display dynamic fields only if requiredFields has values */}
                   {requiredFields.length > 0 &&
                     requiredFields.map((field, idx) => {
                       const fieldValue = vote.voter_info?.[field] || 'N/A';
                       return <TableCell key={idx} className="py-3 px-6 text-gray-800">{fieldValue}</TableCell>;
                     })}
-
-                  {/* Display time voted */}
                   <TableCell className="py-3 px-6 text-gray-800">{timeAgo(voteTime)}</TableCell>
                 </TableRow>
               );
@@ -301,9 +298,6 @@ export default function PollPage() {
           </TableBody>
         </Table>
       </Card>
-
-
-
     </div>
   );
 }

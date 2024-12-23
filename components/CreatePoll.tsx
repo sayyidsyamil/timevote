@@ -15,14 +15,14 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 import { Copy } from "lucide-react"; // Import the copy icon
 
 export function CreatePoll() {
-  const [date, setDate] = useState<Date>(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [title, setTitle] = useState('');
+  const [date, setDate] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [title, setTitle] = useState<string>('');
   const [selectedTimes, setSelectedTimes] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [pollLink, setPollLink] = useState<string | null>(null); // state for poll link
-  const [copySuccess, setCopySuccess] = useState(false); // state to show copy success
+  const [copySuccess, setCopySuccess] = useState<boolean>(false); // state to show copy success
   const [customFields, setCustomFields] = useState<string[]>([]); // state to store custom fields
-  const [isDialogOpen, setIsDialogOpen] = useState(false); // state to manage dialog visibility
+  const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false); // state to manage dialog visibility
   const router = useRouter();
   const { user } = useUser();
 
@@ -39,14 +39,14 @@ export function CreatePoll() {
   };
 
   // Handle input change for custom fields
-  const handleCustomFieldChange = (index: number, value: string) => {
+  const handleCustomFieldChange = (index: number, value: string): void => {
     const updatedFields = [...customFields];
     updatedFields[index] = value;
     setCustomFields(updatedFields);
   };
 
   // Function to handle the creation of the poll and generating the poll link
-  async function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
     if (!user) {
@@ -91,7 +91,7 @@ export function CreatePoll() {
   }
 
   // Function to copy the poll link to the clipboard
-  const copyToClipboard = () => {
+  const copyToClipboard = (): void => {
     if (pollLink) {
       navigator.clipboard.writeText(pollLink)
         .then(() => {
@@ -122,7 +122,7 @@ export function CreatePoll() {
             </div>
             <div>
               <Label htmlFor="week-select">Select Week</Label>
-              <SelectWeek id="week-select" onWeekSelect={(startOfWeekDate) => setDate(startOfWeekDate)} />
+              <SelectWeek onWeekSelect={(startOfWeekDate: Date) => setDate(startOfWeekDate)} />
             </div>
             {date && (
               <div className="text-sm text-muted-foreground mt-4">
@@ -165,18 +165,21 @@ export function CreatePoll() {
           <TimeGrid
             selectedDate={date}
             selectedTimes={selectedTimes}
-            onTimeSelect={(times) => setSelectedTimes(times)}
+            onTimeSelect={(times: string[]) => setSelectedTimes(times)}
             color="bg-red-400"
           />
           <div className="mt-8 flex justify-end">
-            <Button
-              size="lg"
-              onClick={handleSubmit}
-              disabled={!title || !date || isSubmitting}
-              className="bg-primary text-white hover:bg-primary-dark"
-            >
-              Create and Share Poll
-            </Button>
+            <form onSubmit={handleSubmit}>
+              <Button
+                size="lg"
+                type="submit"  // change onClick to onSubmit
+                disabled={!title || !date || isSubmitting}
+                className="bg-primary text-white hover:bg-primary-dark"
+              >
+                Create and Share Poll
+              </Button>
+            </form>
+
           </div>
         </Card>
       </div>
